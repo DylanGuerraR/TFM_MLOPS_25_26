@@ -161,3 +161,19 @@ services:
       KAFKA_CLUSTERS_0_NAME: local-kafka
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker-1:29092,broker-2:29093,broker-3:29094
       KAFKA_CLUSTERS_0_ZOOKEEPER: ""
+  producer:
+    build:
+      context: ../2.producer
+    container_name: producer
+    depends_on:
+      - broker-1
+      - broker-2
+      - broker-3
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker-1:29092,broker-2:29093,broker-3:29094
+      KAFKA_TOPIC: leads_raw
+      ROWS: "1000"
+      DAYS: "7"
+      CONVERT_RATE: "0.35"
+      SEED: "42"
+    restart: "no"
