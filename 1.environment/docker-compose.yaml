@@ -1,5 +1,4 @@
 services:
-
   controller-1:
     image: confluentinc/cp-kafka:${TAG}
     hostname: controller-1
@@ -14,13 +13,14 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_JMX_PORT: 9105
       KAFKA_JMX_HOSTNAME: localhost
-      KAFKA_PROCESS_ROLES: 'controller'
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@controller-1:9095,2@controller-2:9096,3@controller-3:9097'
-      KAFKA_LISTENERS: 'CONTROLLER://controller-1:9095'
-      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
-      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_LOG_DIRS: '/tmp/kraft-controller-logs'
+      KAFKA_PROCESS_ROLES: "controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@controller-1:9095,2@controller-2:9096,3@controller-3:9097"
+      KAFKA_LISTENERS: "CONTROLLER://controller-1:9095"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LOG_DIRS: "/tmp/kraft-controller-logs"
       CLUSTER_ID: ${CLUSTER_ID}
+
   controller-2:
     image: confluentinc/cp-kafka:${TAG}
     hostname: controller-2
@@ -35,13 +35,14 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_JMX_PORT: 9106
       KAFKA_JMX_HOSTNAME: localhost
-      KAFKA_PROCESS_ROLES: 'controller'
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@controller-1:9095,2@controller-2:9096,3@controller-3:9097'
-      KAFKA_LISTENERS: 'CONTROLLER://controller-2:9096'
-      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
-      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_LOG_DIRS: '/tmp/kraft-controller-logs'
+      KAFKA_PROCESS_ROLES: "controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@controller-1:9095,2@controller-2:9096,3@controller-3:9097"
+      KAFKA_LISTENERS: "CONTROLLER://controller-2:9096"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LOG_DIRS: "/tmp/kraft-controller-logs"
       CLUSTER_ID: ${CLUSTER_ID}
+
   controller-3:
     image: confluentinc/cp-kafka:${TAG}
     hostname: controller-3
@@ -56,13 +57,14 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_JMX_PORT: 9107
       KAFKA_JMX_HOSTNAME: localhost
-      KAFKA_PROCESS_ROLES: 'controller'
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@controller-1:9095,2@controller-2:9096,3@controller-3:9097'
-      KAFKA_LISTENERS: 'CONTROLLER://controller-3:9097'
-      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
-      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_LOG_DIRS: '/tmp/kraft-controller-logs'
+      KAFKA_PROCESS_ROLES: "controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@controller-1:9095,2@controller-2:9096,3@controller-3:9097"
+      KAFKA_LISTENERS: "CONTROLLER://controller-3:9097"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LOG_DIRS: "/tmp/kraft-controller-logs"
       CLUSTER_ID: ${CLUSTER_ID}
+
   broker-1:
     image: confluentinc/cp-kafka:${TAG}
     hostname: broker-1
@@ -76,21 +78,22 @@ services:
       - "9102:9102"
     environment:
       KAFKA_NODE_ID: 4
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
-      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://broker-1:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://broker-1:29092,PLAINTEXT_HOST://localhost:9092"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_JMX_PORT: 9102
       KAFKA_JMX_HOSTNAME: localhost
-      KAFKA_PROCESS_ROLES: 'broker'
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@controller-1:9095,2@controller-2:9096,3@controller-3:9097'
-      KAFKA_LISTENERS: 'PLAINTEXT://broker-1:29092,PLAINTEXT_HOST://0.0.0.0:9092'
-      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
-      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      KAFKA_PROCESS_ROLES: "broker"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@controller-1:9095,2@controller-2:9096,3@controller-3:9097"
+      KAFKA_LISTENERS: "PLAINTEXT://broker-1:29092,PLAINTEXT_HOST://0.0.0.0:9092"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
       CLUSTER_ID: ${CLUSTER_ID}
+
   broker-2:
     image: confluentinc/cp-kafka:${TAG}
     hostname: broker-2
@@ -104,21 +107,22 @@ services:
       - "9103:9103"
     environment:
       KAFKA_NODE_ID: 5
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
-      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://broker-2:29093,PLAINTEXT_HOST://localhost:9093'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://broker-2:29093,PLAINTEXT_HOST://localhost:9093"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_JMX_PORT: 9103
       KAFKA_JMX_HOSTNAME: localhost
-      KAFKA_PROCESS_ROLES: 'broker'
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@controller-1:9095,2@controller-2:9096,3@controller-3:9097'
-      KAFKA_LISTENERS: 'PLAINTEXT://broker-2:29093,PLAINTEXT_HOST://0.0.0.0:9093'
-      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
-      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      KAFKA_PROCESS_ROLES: "broker"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@controller-1:9095,2@controller-2:9096,3@controller-3:9097"
+      KAFKA_LISTENERS: "PLAINTEXT://broker-2:29093,PLAINTEXT_HOST://0.0.0.0:9093"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
       CLUSTER_ID: ${CLUSTER_ID}
+
   broker-3:
     image: confluentinc/cp-kafka:${TAG}
     hostname: broker-3
@@ -132,20 +136,20 @@ services:
       - "9104:9104"
     environment:
       KAFKA_NODE_ID: 6
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
-      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://broker-3:29094,PLAINTEXT_HOST://localhost:9094'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://broker-3:29094,PLAINTEXT_HOST://localhost:9094"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_JMX_PORT: 9104
       KAFKA_JMX_HOSTNAME: localhost
-      KAFKA_PROCESS_ROLES: 'broker'
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@controller-1:9095,2@controller-2:9096,3@controller-3:9097'
-      KAFKA_LISTENERS: 'PLAINTEXT://broker-3:29094,PLAINTEXT_HOST://0.0.0.0:9094'
-      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
-      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      KAFKA_PROCESS_ROLES: "broker"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@controller-1:9095,2@controller-2:9096,3@controller-3:9097"
+      KAFKA_LISTENERS: "PLAINTEXT://broker-3:29094,PLAINTEXT_HOST://0.0.0.0:9094"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
       CLUSTER_ID: ${CLUSTER_ID}
 
   kafka-ui:
@@ -159,8 +163,9 @@ services:
       - "8085:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local-kafka
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker-1:29092,broker-2:29093,broker-3:29094
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "broker-1:29092,broker-2:29093,broker-3:29094"
       KAFKA_CLUSTERS_0_ZOOKEEPER: ""
+
   producer:
     build:
       context: ../2.producer
@@ -170,10 +175,73 @@ services:
       - broker-2
       - broker-3
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: broker-1:29092,broker-2:29093,broker-3:29094
+      KAFKA_BOOTSTRAP_SERVERS: "broker-1:29092,broker-2:29093,broker-3:29094"
       KAFKA_TOPIC: leads_raw
       ROWS: "1000"
       DAYS: "7"
       CONVERT_RATE: "0.35"
       SEED: "42"
     restart: "no"
+
+  spark-master:
+    image: bitnamilegacy/spark:3.5.0
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "7077:7077" # Spark master
+      - "8086:8080" # UI Spark master
+    volumes:
+      - datalake:/opt/datalake
+
+  spark-worker:
+    image: bitnamilegacy/spark:3.5.0
+    container_name: spark-worker
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    ports:
+      - "8087:8081" # UI Spark worker
+    volumes:
+      - datalake:/opt/datalake
+
+  datalake-init:
+    image: bitnamilegacy/spark:3.5.0
+    container_name: datalake-init
+    user: "0:0"
+    volumes:
+      - datalake:/opt/datalake
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p /opt/datalake/bronze/leads_raw /opt/datalake/checkpoints/leads_raw
+        chown -R 1001:1001 /opt/datalake
+        chmod -R 775 /opt/datalake
+  spark-kafka-to-bronze:
+    image: bitnamilegacy/spark:3.5.0
+    container_name: spark-kafka-to-bronze
+    user: root
+    depends_on:
+      - datalake-init
+      - spark-master
+      - spark-worker
+      - broker-1
+      - broker-2
+      - broker-3
+    environment:
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - KAFKA_BOOTSTRAP_SERVERS=broker-1:29092,broker-2:29093,broker-3:29094
+      - KAFKA_TOPIC=leads_raw
+      - BRONZE_PATH=/opt/datalake/bronze/leads_raw
+      - CHECKPOINT_PATH=/opt/datalake/checkpoints/leads_raw
+    volumes:
+      - datalake:/opt/datalake
+      - ../3.spark:/opt/spark-app
+    command: >
+      /opt/bitnami/spark/bin/spark-submit --master spark://spark-master:7077 --conf spark.hadoop.fs.file.impl=org.apache.hadoop.fs.RawLocalFileSystem --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 /opt/spark-app/kafka_to_bronze.py
+
+volumes:
+  datalake:
