@@ -1,0 +1,9 @@
+name: tfm
+
+networks:
+  tfm_net:
+    name: tfm_net
+
+volumes:
+  datalake:
+    name: tfm_datalake

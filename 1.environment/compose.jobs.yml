@@ -1,0 +1,88 @@
+services:
+  topic-init:
+    image: confluentinc/cp-kafka:${TAG}
+    container_name: topic-init
+    networks: [ tfm_net ]
+    depends_on:
+      broker-1: { condition: service_healthy }
+      broker-2: { condition: service_healthy }
+      broker-3: { condition: service_healthy }
+    environment:
+      BOOTSTRAP: "broker-1:29092"
+      TOPIC: "leads_raw"
+      PARTITIONS: "3"
+      RF: "1"
+    command:
+      - bash
+      - -lc
+      - |
+        echo "Waiting for Kafka..."
+        for i in {1..60}; do
+          kafka-topics --bootstrap-server "$BOOTSTRAP" --list >/dev/null 2>&1 && break
+          sleep 2
+        done
+        echo "Creating topic (if missing): $TOPIC"
+        kafka-topics --bootstrap-server "$BOOTSTRAP" \
+          --create --if-not-exists \
+          --topic "$TOPIC" \
+          --partitions "$PARTITIONS" \
+          --replication-factor "$RF"
+        echo "Topic ready."
+    restart: "no"
+
+  producer:
+    build:
+      context: ../2.producer
+    container_name: producer
+    networks: [ tfm_net ]
+    depends_on:
+      topic-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "broker-1:29092,broker-2:29093,broker-3:29094"
+      KAFKA_TOPIC: leads_raw
+      ROWS: "1000"
+      DAYS: "7"
+      CONVERT_RATE: "0.35"
+      SEED: "42"
+    restart: "no"
+
+  spark-kafka-to-bronze:
+    image: bitnamilegacy/spark:3.5.0
+    container_name: spark-kafka-to-bronze
+    networks: [ tfm_net ]
+    user: root
+    depends_on:
+      producer:
+        condition: service_completed_successfully
+      datalake-init:
+        condition: service_completed_successfully
+      spark-master:
+        condition: service_healthy
+      broker-1:
+        condition: service_healthy
+      broker-2:
+        condition: service_healthy
+      broker-3:
+        condition: service_healthy
+    environment:
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - KAFKA_BOOTSTRAP_SERVERS=broker-1:29092,broker-2:29093,broker-3:29094
+      - KAFKA_TOPIC=leads_raw
+      - BRONZE_PATH=/opt/datalake/bronze/leads_raw
+      - CHECKPOINT_PATH=/opt/datalake/checkpoints/leads_raw
+    volumes:
+      - datalake:/opt/datalake
+      - ../3.spark:/opt/spark-app
+    command: >
+      /opt/bitnami/spark/bin/spark-submit --master spark://spark-master:7077 --conf spark.hadoop.fs.file.impl=org.apache.hadoop.fs.RawLocalFileSystem --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 /opt/spark-app/kafka_to_bronze.py
+    restart: unless-stopped
+
+networks:
+  tfm_net:
+
+
+volumes:
+  datalake:
+
+

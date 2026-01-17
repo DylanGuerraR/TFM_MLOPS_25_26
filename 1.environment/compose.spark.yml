@@ -1,0 +1,60 @@
+services:
+  spark-master:
+    image: bitnamilegacy/spark:3.5.0
+    container_name: spark-master
+    networks: [ tfm_net ]
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "7077:7077"
+      - "8086:8080"
+    volumes:
+      - datalake:/opt/datalake
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -lc ': >/dev/tcp/127.0.0.1/8080'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  spark-worker:
+    image: bitnamilegacy/spark:3.5.0
+    container_name: spark-worker
+    networks: [ tfm_net ]
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    ports:
+      - "8087:8081"
+    volumes:
+      - datalake:/opt/datalake
+    restart: unless-stopped
+
+  datalake-init:
+    image: bitnamilegacy/spark:3.5.0
+    container_name: datalake-init
+    networks: [ tfm_net ]
+    user: "0:0"
+    volumes:
+      - datalake:/opt/datalake
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p /opt/datalake/bronze/leads_raw /opt/datalake/checkpoints/leads_raw
+        chown -R 1001:1001 /opt/datalake
+        chmod -R 775 /opt/datalake
+    restart: "no"
+
+networks:
+  tfm_net:
+
+
+volumes:
+  datalake:
+
+
