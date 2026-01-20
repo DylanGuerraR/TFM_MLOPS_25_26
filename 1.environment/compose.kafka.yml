@@ -203,3 +203,4 @@ services:
 
 networks:
   tfm_net:
+    name: tfm_net
