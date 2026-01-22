@@ -1,0 +1,10 @@
+services:
+  duckdb:
+    image: duckdb/duckdb:latest
+    container_name: tfm-duckdb
+    networks: [ tfm_net ]
+    volumes:
+      - datalake:/opt/datalake
+    stdin_open: true
+    tty: true
+    restart: "no"

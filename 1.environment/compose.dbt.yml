@@ -1,0 +1,20 @@
+services:
+  dbt:
+    build:
+      context: ./dbt-image
+      dockerfile: Dockerfile
+    image: tfm-dbt:duckdb
+    container_name: tfm-dbt
+    networks: [ tfm_net ]
+    environment:
+      DBT_PROFILES_DIR: /usr/app
+      DBT_PROJECT_DIR: /usr/app
+      BRONZE_PATH: /opt/datalake/bronze/leads_raw
+      WAREHOUSE_PATH: /opt/datalake/warehouse/tfm.duckdb
+    volumes:
+      - datalake:/opt/datalake
+      - ./dbt:/usr/app
+    working_dir: /usr/app
+    tty: true
+    stdin_open: true
+    restart: "no"

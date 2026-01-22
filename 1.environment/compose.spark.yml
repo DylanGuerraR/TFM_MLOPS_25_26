@@ -45,7 +45,7 @@ services:
       - bash
       - -lc
       - |
-        mkdir -p /opt/datalake/bronze/leads_raw /opt/datalake/checkpoints/leads_raw
+        mkdir -p /opt/datalake/bronze/leads_raw /opt/datalake/checkpoints/leads_raw /opt/datalake/warehouse
         chown -R 1001:1001 /opt/datalake
         chmod -R 775 /opt/datalake
     restart: "no"

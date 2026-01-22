@@ -1,0 +1,7 @@
+tfm_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: /opt/datalake/warehouse/tfm.duckdb
+      threads: 4
