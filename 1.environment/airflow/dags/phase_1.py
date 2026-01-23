@@ -93,15 +93,38 @@ with DAG(
     )
 
     # 5) validación: existen ficheros parquet en ingestion_date={{ ds }}
-    # (usa spark-master porque tiene montado el volumen datalake) :contentReference[oaicite:5]{index=5}
+    # (usa spark-master porque tiene montado el volumen datalake)
     validate_bronze = BashOperator(
         task_id="validate_bronze_partition",
         bash_command=r"""
         set -e
         PART="/opt/datalake/bronze/leads_raw/ingestion_date={{ ds }}"
         echo "Checking partition: ${PART}"
+
+        # 1) existe la partición
         docker exec spark-master bash -lc "test -d '${PART}'"
-        docker exec spark-master bash -lc "find '${PART}' -type f | wc -l"
+
+        # 2) listar algunos parquet y contar cuántos hay
+        echo "Parquet files (first 20):"
+        docker exec spark-master bash -lc "find '${PART}' -name '*.parquet' -type f | head -n 20"
+
+        echo "Parquet file count:"
+        docker exec spark-master bash -lc "find '${PART}' -name '*.parquet' -type f | wc -l"
+
+        # 3) leer con Spark y mostrar filas + muestra de campos
+        echo "Spark read check (rows + schema + sample):"
+        docker exec -e PART_PATH="${PART}" spark-master bash -lc '
+        /opt/bitnami/spark/bin/spark-shell << "SCALA"
+        val path = sys.env("PART_PATH")
+        val df = spark.read.parquet(path)
+
+        println(s"Rows = ${df.count()}")
+        df.printSchema()
+        df.show(5, false)
+
+        System.exit(0)
+    SCALA
+        '
         """,
     )
 
