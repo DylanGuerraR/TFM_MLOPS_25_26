@@ -1,0 +1,27 @@
+services:
+  mlflow-server:
+    image: ghcr.io/mlflow/mlflow:v3.8.1
+    container_name: mlflow-server
+    networks: [ tfm_net ]
+    ports:
+      - "5000:5000"
+    volumes:
+      - datalake:/opt/datalake
+    environment:
+      - MLFLOW_HTTP_SERVER_ALLOWED_HOSTS=*
+    command: >
+      mlflow server  --backend-store-uri sqlite:////opt/datalake/mlflow.db  --default-artifact-root /opt/datalake/mlflow_artifacts  --host 0.0.0.0  --allowed-hosts "*"
+
+  train-xgboost:
+    build:
+      context: ./4.MLflow
+    container_name: train-xgboost
+    depends_on:
+      - mlflow-server
+    networks: [ tfm_net ]
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow-server:5000
+      - DUCKDB_PATH=/opt/datalake/warehouse/tfm.duckdb
+    volumes:
+      - datalake:/opt/datalake
+    restart: "no"
