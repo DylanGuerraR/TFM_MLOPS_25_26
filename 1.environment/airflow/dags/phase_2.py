@@ -67,7 +67,7 @@ with DAG(
         docker run --rm \
           -v {DATALAKE_VOL}:/opt/datalake \
           {DBT_IMAGE} \
-          dbt run -s leads_silver --full-refresh
+          dbt run -s leads_silver --full-refresh --vars '{{start_date: "{{{{ macros.ds_add(ds, -365) }}}}", end_date: "{{{{ ds }}}}"}}'
         """,
     )
 
@@ -78,7 +78,7 @@ with DAG(
         docker run --rm \
           -v {DATALAKE_VOL}:/opt/datalake \
           {DBT_IMAGE} \
-          dbt run -s leads_gold_features --full-refresh
+          dbt run -s leads_gold_features --full-refresh --vars '{{start_date: "{{{{ macros.ds_add(ds, -365) }}}}", end_date: "{{{{ ds }}}}"}}'
         """,
     )
 
@@ -86,8 +86,9 @@ with DAG(
         task_id="duckdb_counts",
         bash_command=f"""
         set -e
+        sleep 2
         docker run --rm -v {DATALAKE_VOL}:/opt/datalake {DUCKDB_IMAGE} \
-          duckdb {WAREHOUSE_DB} -c "
+          duckdb -readonly {WAREHOUSE_DB} -c "
             SELECT 'leads_silver' AS table, count(*) AS n FROM leads_silver
             UNION ALL
             SELECT 'leads_gold_features', count(*) FROM leads_gold_features;
@@ -99,16 +100,16 @@ with DAG(
         task_id="gold_export_parquet",
         bash_command=f"""
         set -e
-        DATE=$(date +%F)
-        OUTDIR="/opt/datalake/gold/leads_gold_features/ingestion_date=${{DATE}}"
+        OUTDIR="/opt/datalake/gold/leads_gold_features/ingestion_date={{{{ ds }}}}"
 
+        sleep 2
         docker run --rm -v {DATALAKE_VOL}:/opt/datalake {ALPINE_IMAGE} \
           mkdir -p "${{OUTDIR}}"
 
         docker run --rm -v {DATALAKE_VOL}:/opt/datalake {DUCKDB_IMAGE} \
-          duckdb {WAREHOUSE_DB} -c "
+          duckdb -readonly {WAREHOUSE_DB} -c "
             COPY (
-              SELECT *, DATE '${{DATE}}' AS ingestion_date
+              SELECT *, DATE '{{{{ ds }}}}' AS ingestion_date
               FROM leads_gold_features
             ) TO '${{OUTDIR}}/part-00000.parquet'
             (FORMAT PARQUET);
@@ -120,11 +121,11 @@ with DAG(
         task_id="gold_parquet_validate",
         bash_command=f"""
         set -e
-        DATE=$(date +%F)
+        sleep 2
         docker run --rm -v {DATALAKE_VOL}:/opt/datalake {DUCKDB_IMAGE} \
           duckdb -c "
             SELECT count(*) AS n
-            FROM read_parquet('/opt/datalake/gold/leads_gold_features/ingestion_date=${{DATE}}/part-*.parquet');
+            FROM read_parquet('/opt/datalake/gold/leads_gold_features/ingestion_date={{{{ ds }}}}/part-*.parquet');
           "
         """,
     )

@@ -8,6 +8,9 @@ WITH bronze AS (
     kafka_timestamp,
     ingestion_date
   FROM read_parquet('/opt/datalake/bronze/leads_raw/ingestion_date=*/part-*.parquet')
+  WHERE ingestion_date BETWEEN
+    CAST('{{ var("start_date") }}' AS DATE)
+    AND CAST('{{ var("end_date") }}' AS DATE)
 ),
 
 parsed AS (
