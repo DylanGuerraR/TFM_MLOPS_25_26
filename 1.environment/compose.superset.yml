@@ -1,0 +1,78 @@
+services:
+  superset-db:
+    image: postgres:15
+    container_name: superset-db
+    networks: [ tfm_net ]
+    environment:
+      - POSTGRES_USER=superset
+      - POSTGRES_PASSWORD=superset
+      - POSTGRES_DB=superset
+    volumes:
+      - superset_db:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  superset-redis:
+    image: redis:7
+    container_name: superset-redis
+    networks: [ tfm_net ]
+    restart: unless-stopped
+
+  superset:
+    build:
+      context: ./superset-image
+    image: tfm-superset:4.1.2
+    container_name: superset
+    networks: [ tfm_net ]
+    depends_on:
+      - superset-db
+      - superset-redis
+    ports:
+      - "8088:8088"
+    environment:
+      - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY}
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:superset@superset-db:5432/superset
+      - REDIS_HOST=superset-redis
+      - REDIS_PORT=6379
+    volumes:
+      - datalake:/opt/datalake
+      - superset_home:/app/superset_home
+    command: >
+      /bin/sh -c "superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debugger"
+    restart: unless-stopped
+
+  superset-init:
+    image: tfm-superset:4.1.2
+    container_name: superset-init
+    networks: [ tfm_net ]
+    depends_on:
+      - superset-db
+      - superset-redis
+    environment:
+      - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY}
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:superset@superset-db:5432/superset
+      - REDIS_HOST=superset-redis
+      - REDIS_PORT=6379
+      - SUPERSET_ADMIN_USER=${SUPERSET_ADMIN_USER}
+      - SUPERSET_ADMIN_FIRSTNAME=${SUPERSET_ADMIN_FIRSTNAME}
+      - SUPERSET_ADMIN_LASTNAME=${SUPERSET_ADMIN_LASTNAME}
+      - SUPERSET_ADMIN_EMAIL=${SUPERSET_ADMIN_EMAIL}
+      - SUPERSET_ADMIN_PASSWORD=${SUPERSET_ADMIN_PASSWORD}
+    volumes:
+      - datalake:/opt/datalake
+      - superset_home:/app/superset_home
+    entrypoint: [ "/bin/bash", "-c" ]
+    command: >
+      "superset db upgrade && 
+       superset fab create-admin --username \"$${SUPERSET_ADMIN_USER}\" --firstname \"$${SUPERSET_ADMIN_FIRSTNAME}\" --lastname \"$${SUPERSET_ADMIN_LASTNAME}\" --email \"$${SUPERSET_ADMIN_EMAIL}\" --password \"$${SUPERSET_ADMIN_PASSWORD}\" || true && 
+       superset init"
+    restart: "no"
+
+networks:
+  tfm_net:
+    name: tfm_net
+
+volumes:
+  superset_db:
+  superset_home:
+  datalake:
+    name: tfm_datalake

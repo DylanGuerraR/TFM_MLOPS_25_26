@@ -34,17 +34,30 @@ with DAG(
     )
 
     # 3. Ejecutar entrenamiento y registro en MLflow
-    # Nota: se lanza incluyendo compose.duckdb.yml para que train-xgboost encuentre el volumen del datalake
     train_model = BashOperator(
         task_id="train_model",
         bash_command=f"""
         set -e
         cd {REPO_DIR}
-        # Asegurar que el servidor de tracking esté arriba
+        # Aseguramos que el servidor de MLflow esté arriba y saludable (vía healthcheck en compose)
         docker compose -f compose.base.yml -f compose.mlflow.yml up -d mlflow-server
-        # Ejecutar el job de entrenamiento con acceso a DuckDB
-        docker compose -f compose.base.yml -f compose.duckdb.yml -f compose.mlflow.yml up train-xgboost
+        
+        # Ejecutamos el entrenamiento. 
+        # Al usar 'run --rm' y tener 'depends_on' con 'service_healthy', 
+        # docker esperará automáticamente a que mlflow esté listo.
+        docker compose -f compose.base.yml -f compose.duckdb.yml -f compose.mlflow.yml run --rm train-xgboost python train_xgboost.py
         """,
     )
 
-    check_repo >> build_training_image >> train_model
+    # 4. Aterrizar métricas en DuckDB para Superset
+    landing_to_superset = BashOperator(
+        task_id="landing_to_superset",
+        bash_command=f"""
+        set -e
+        cd {REPO_DIR}
+        # Sincronizamos métricas
+        docker compose -f compose.base.yml -f compose.mlflow.yml run --rm train-xgboost python export_metrics.py
+        """,
+    )
+
+    check_repo >> build_training_image >> train_model >> landing_to_superset

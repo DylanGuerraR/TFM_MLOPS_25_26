@@ -154,12 +154,18 @@ def train():
         plt.close(cm_fig)
 
         # Registro del modelo
-        model_uri = f"runs:/{run.info.run_id}/model"
-        mlflow.register_model(model_uri, "XGBoost_Conversion_Model")
+        print(f"MLflow Client Version: {mlflow.__version__}")
+        try:
+            model_uri = f"runs:/{run.info.run_id}/model"
+            mlflow.register_model(model_uri, "XGBoost_Conversion_Model")
+            print("Model registered successfully.")
+        except Exception as e:
+            print(f"Warning: Could not register model in Model Registry: {e}")
+            print("The run and artifacts were still saved in the experiment.")
         
         print(f"Run ID: {run.info.run_id}")
         print(f"Final Metrics logged to MLflow UI.")
-        print("Model trained, visualizations generated and registered successfully.")
+        print("Model training and visualization generation complete.")
 
 if __name__ == "__main__":
     train()

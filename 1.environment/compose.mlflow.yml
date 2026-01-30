@@ -1,27 +1,42 @@
 services:
   mlflow-server:
-    image: ghcr.io/mlflow/mlflow:v3.8.1
+    image: ghcr.io/mlflow/mlflow:v2.10.2
     container_name: mlflow-server
     networks: [ tfm_net ]
     ports:
       - "5000:5000"
     volumes:
       - datalake:/opt/datalake
-    environment:
-      - MLFLOW_HTTP_SERVER_ALLOWED_HOSTS=*
     command: >
-      mlflow server  --backend-store-uri sqlite:////opt/datalake/mlflow.db  --default-artifact-root /opt/datalake/mlflow_artifacts  --host 0.0.0.0  --allowed-hosts "*"
+      mlflow server --backend-store-uri sqlite:////opt/datalake/4.MLflow/mlflow.db --default-artifact-root /opt/datalake/4.MLflow/mlflow_artifacts --host 0.0.0.0 --port 5000
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   train-xgboost:
     build:
       context: ./4.MLflow
+      dockerfile: Dockerfile
+    image: tfm-train-xgboost:latest
     container_name: train-xgboost
-    depends_on:
-      - mlflow-server
     networks: [ tfm_net ]
+    depends_on:
+      mlflow-server:
+        condition: service_healthy
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow-server:5000
       - DUCKDB_PATH=/opt/datalake/warehouse/tfm.duckdb
     volumes:
       - datalake:/opt/datalake
     restart: "no"
+
+networks:
+  tfm_net:
+    name: tfm_net
+
+volumes:
+  datalake:
+    name: tfm_datalake
