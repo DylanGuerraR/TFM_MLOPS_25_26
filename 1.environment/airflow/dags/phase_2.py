@@ -22,7 +22,7 @@ default_args = {"owner": "tfm", "retries": 0}
 with DAG(
     dag_id="phase2_dbt_silver_gold_export",
     default_args=default_args,
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 2, 2),
     schedule=None,
     catchup=False,
     tags=["tfm", "phase2", "dbt", "duckdb"],

@@ -1,8 +1,8 @@
 services:
   dbt:
     build:
-      context: ./dbt-image
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: dbt-image/Dockerfile
     image: tfm-dbt:duckdb
     container_name: tfm-dbt
     networks: [ tfm_net ]

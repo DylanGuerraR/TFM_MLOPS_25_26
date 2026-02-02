@@ -7,8 +7,9 @@ services:
       - "5000:5000"
     volumes:
       - datalake:/opt/datalake
+      - mlflow_db:/opt/mlflow_db
     command: >
-      mlflow server --backend-store-uri sqlite:////opt/datalake/4.MLflow/mlflow.db --default-artifact-root /opt/datalake/4.MLflow/mlflow_artifacts --host 0.0.0.0 --port 5000
+      mlflow server --backend-store-uri sqlite:////opt/mlflow_db/mlflow.db --default-artifact-root /opt/datalake/4.MLflow/mlflow_artifacts --host 0.0.0.0 --port 5000
     healthcheck:
       test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" ]
       interval: 10s
@@ -40,3 +41,4 @@ networks:
 volumes:
   datalake:
     name: tfm_datalake
+  mlflow_db:

@@ -1,0 +1,60 @@
+version: 2
+
+models:
+  - name: leads_silver
+    description: "Capa Silver: Limpieza, tipado y deduplicación (1 fila por lead_number)."
+    columns:
+      - name: lead_number
+        description: "ID numérico único del prospecto"
+        tests:
+          - unique
+          - not_null
+      - name: converted
+        description: "Indicador binario de conversión (Target)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+      - name: total_visits
+        description: "Número total de visitas detectadas"
+        tests:
+          - not_null
+      - name: total_time_spent_on_website
+        description: "Tiempo total en segundos en la web"
+        tests:
+          - not_null
+      - name: average_time_per_visit
+        description: "Métrica calculada: tiempo / visitas"
+        tests:
+          - not_null
+
+  - name: leads_gold_features
+    description: "Capa Gold: Features finales listas para entrenamiento e inferencia (XGBoost)."
+    columns:
+      - name: "Lead Number"
+        tests:
+          - unique
+          - not_null
+      - name: "Converted"
+        tests:
+          - not_null
+      - name: "Total Time Spent on Website"
+        tests:
+          - not_null
+      - name: "Page Views Per Visit"
+        tests:
+          - not_null
+      - name: "TotalVisits"
+        tests:
+          - not_null
+      - name: "Average Time Per Visit"
+        tests:
+          - not_null
+
+  - name: leads_gold_sin_converted
+    description: "Vista de inferencia: Igual que features pero sin la columna Converted."
+    columns:
+      - name: "Lead Number"
+        tests:
+          - unique
+          - not_null

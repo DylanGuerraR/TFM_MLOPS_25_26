@@ -19,7 +19,7 @@ COMPOSE = (
 with DAG(
     dag_id="phase1_kafka_to_bronze",
     description="TFM Fase 1: Kafka -> Bronze (Parquet particionado)",
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 2, 2),
     schedule="0 0 1 * *",  # dia 1 de cada mes
     catchup=False,
     max_active_runs=1,
