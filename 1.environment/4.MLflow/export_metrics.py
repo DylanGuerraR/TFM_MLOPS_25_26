@@ -82,6 +82,14 @@ def export_metrics():
         """, row)
 
     con_duck.close()
+    
+    # FIX: Ajustar permisos para que Superset (usuario no roor) pueda leer/escribir
+    try:
+        os.chmod(DUCKDB_PATH, 0o666)
+        print(f"Permissions for {DUCKDB_PATH} set to 666.")
+    except Exception as e:
+        print(f"Warning: Could not set permissions on {DUCKDB_PATH}: {e}")
+
     print("Metrics successfully landed in DuckDB table 'reporting_model_metrics'.")
 
 if __name__ == "__main__":

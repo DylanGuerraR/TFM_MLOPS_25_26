@@ -60,11 +60,17 @@ services:
     volumes:
       - datalake:/opt/datalake
       - superset_home:/app/superset_home
+      - ./5.Vizz/dashboards:/app/dashboards
     entrypoint: [ "/bin/bash", "-c" ]
     command: >
       "superset db upgrade && 
        superset fab create-admin --username \"$${SUPERSET_ADMIN_USER}\" --firstname \"$${SUPERSET_ADMIN_FIRSTNAME}\" --lastname \"$${SUPERSET_ADMIN_LASTNAME}\" --email \"$${SUPERSET_ADMIN_EMAIL}\" --password \"$${SUPERSET_ADMIN_PASSWORD}\" || true && 
-       superset init"
+       superset init &&
+       if [ -d \"/app/dashboards\" ]; then
+         for f in /app/dashboards/*.zip; do
+           [ -e \"$$f\" ] && echo \"Importing dashboard $$f...\" && superset import-dashboards -p \"$$f\" --username \"$${SUPERSET_ADMIN_USER}\"
+         done
+       fi"
     restart: "no"
 
 networks:

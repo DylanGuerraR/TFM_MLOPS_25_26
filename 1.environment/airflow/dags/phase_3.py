@@ -60,4 +60,22 @@ with DAG(
         """,
     )
 
-    check_repo >> build_training_image >> train_model >> landing_to_superset
+    # 5. Inicializar/Actualizar activos en Superset (Dashboards as Code)
+    init_superset_assets = BashOperator(
+        task_id="init_superset_assets",
+        bash_command=f"""
+        set -e
+        cd {REPO_DIR}
+        # 1. Levantamos en background para asegurar que el contenedor existe (dependencies, network, etc)
+        docker compose -f compose.base.yml -f compose.superset.yml up -d superset-init
+        
+        # 2. Copiamos manualmmnete los dashboards desde el repo local (Airflow) al contenedor
+        # Esto soluciona si hay un problema de "Bind Mounts" vacíos cuando se corre Docker-in-Docker
+        docker cp ./5.Vizz/dashboards/. superset-init:/app/dashboards/
+        
+        # 3. Exportamos variables y reiniciamos attached para ver logs y resultado
+        export $(grep -v '^#' .env | xargs) && docker compose -f compose.base.yml -f compose.superset.yml restart superset-init && docker logs -f superset-init
+        """,
+    )
+
+    check_repo >> build_training_image >> train_model >> landing_to_superset >> init_superset_assets
