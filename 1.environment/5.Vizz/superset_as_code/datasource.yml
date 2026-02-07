@@ -1,0 +1,10 @@
+databases:
+  - database_name: tfm_duckdb
+    sqlalchemy_uri: duckdb:////opt/datalake/warehouse/tfm.duckdb
+    expose_in_sqllab: true
+    allow_run_async: false
+    allow_ctas: false
+    allow_cvas: false
+    allow_dml: false
+    extra: |
+      {"engine_params": {"connect_args": {"read_only": true}}}

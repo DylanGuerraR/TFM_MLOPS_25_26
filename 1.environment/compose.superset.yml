@@ -1,12 +1,17 @@
+# compose.superset.yml
+# Propósito: Superset + Postgres + Redis, montando el volumen datalake (DuckDB).
+# Nota: NO usamos external aquí. El volumen "datalake" se resuelve junto con compose.base.yml.
+# Cambio clave: quitamos bind-mounts de ./5.Vizz/* porque ahora van bakeados dentro de la imagen.
+
 services:
   superset-db:
     image: postgres:15
     container_name: superset-db
     networks: [ tfm_net ]
     environment:
-      - POSTGRES_USER=superset
-      - POSTGRES_PASSWORD=superset
-      - POSTGRES_DB=superset
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: superset
+      POSTGRES_DB: superset
     volumes:
       - superset_db:/var/lib/postgresql/data
     restart: unless-stopped
@@ -17,60 +22,102 @@ services:
     networks: [ tfm_net ]
     restart: unless-stopped
 
+  # 1) Asegurar permisos del volumen datalake (DuckDB + carpetas)
+  # Esto evita: duckdb.IOException: Permission denied
+  superset-datalake-perms:
+    image: alpine:3.20
+    container_name: superset-datalake-perms
+    networks: [ tfm_net ]
+    user: "0:0"
+    volumes:
+      - datalake:/opt/datalake
+    command: >
+      sh -lc "
+        set -e;
+        echo '[superset-datalake-perms] start';
+        mkdir -p /opt/datalake/warehouse /opt/datalake/bronze /opt/datalake/silver /opt/datalake/gold /opt/datalake/checkpoints /opt/datalake/4.MLflow/mlflow_artifacts;
+        chmod -R 777 /opt/datalake;
+        [ -f /opt/datalake/warehouse/tfm.duckdb ] && chmod 666 /opt/datalake/warehouse/tfm.duckdb || true;
+        [ -f /opt/datalake/warehouse.duckdb ] && chmod 666 /opt/datalake/warehouse.duckdb || true;
+        echo '[superset-datalake-perms] done';
+      "
+    restart: "no"
+
   superset:
     build:
-      context: ./superset-image
+      # build desde el root del repo para poder usar Dockerfile y copiar 5.Vizz/*
+      context: .
+      dockerfile: superset-image/Dockerfile
     image: tfm-superset:4.1.2
     container_name: superset
     networks: [ tfm_net ]
     depends_on:
       - superset-db
       - superset-redis
+      - superset-datalake-perms
     ports:
       - "8088:8088"
     environment:
-      - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY}
-      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:superset@superset-db:5432/superset
-      - REDIS_HOST=superset-redis
-      - REDIS_PORT=6379
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-this_is_not_secure_change_me}
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:superset@superset-db:5432/superset
+      REDIS_HOST: superset-redis
+      REDIS_PORT: 6379
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
     volumes:
       - datalake:/opt/datalake
       - superset_home:/app/superset_home
-    command: >
-      /bin/sh -c "superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debugger"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8088/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
 
+  # One-shot init: migra DB, crea admin idempotente y hace superset init
   superset-init:
     image: tfm-superset:4.1.2
     container_name: superset-init
-    networks: [ tfm_net ]
     depends_on:
-      - superset-db
-      - superset-redis
+      superset-db:
+        condition: service_started
+      superset-redis:
+        condition: service_started
+      superset-datalake-perms:
+        condition: service_completed_successfully
+    networks: [ tfm_net ]
     environment:
-      - SUPERSET_SECRET_KEY=${SUPERSET_SECRET_KEY}
-      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://superset:superset@superset-db:5432/superset
-      - REDIS_HOST=superset-redis
-      - REDIS_PORT=6379
-      - SUPERSET_ADMIN_USER=${SUPERSET_ADMIN_USER}
-      - SUPERSET_ADMIN_FIRSTNAME=${SUPERSET_ADMIN_FIRSTNAME}
-      - SUPERSET_ADMIN_LASTNAME=${SUPERSET_ADMIN_LASTNAME}
-      - SUPERSET_ADMIN_EMAIL=${SUPERSET_ADMIN_EMAIL}
-      - SUPERSET_ADMIN_PASSWORD=${SUPERSET_ADMIN_PASSWORD}
+      SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-admin}
+      SUPERSET_ADMIN_FIRSTNAME: ${SUPERSET_ADMIN_FIRSTNAME:-Dylan}
+      SUPERSET_ADMIN_LASTNAME: ${SUPERSET_ADMIN_LASTNAME:-Guerra}
+      SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL:-admin@local}
+
+      SUPERSET_LOAD_EXAMPLES: "no"
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:superset@superset-db:5432/superset
+      REDIS_HOST: superset-redis
+      REDIS_PORT: 6379
     volumes:
       - datalake:/opt/datalake
       - superset_home:/app/superset_home
-      - ./5.Vizz/dashboards:/app/dashboards
-    entrypoint: [ "/bin/bash", "-c" ]
-    command: >
-      "superset db upgrade && 
-       superset fab create-admin --username \"$${SUPERSET_ADMIN_USER}\" --firstname \"$${SUPERSET_ADMIN_FIRSTNAME}\" --lastname \"$${SUPERSET_ADMIN_LASTNAME}\" --email \"$${SUPERSET_ADMIN_EMAIL}\" --password \"$${SUPERSET_ADMIN_PASSWORD}\" || true && 
-       superset init &&
-       if [ -d \"/app/dashboards\" ]; then
-         for f in /app/dashboards/*.zip; do
-           [ -e \"$$f\" ] && echo \"Importing dashboard $$f...\" && superset import-dashboards -p \"$$f\" --username \"$${SUPERSET_ADMIN_USER}\"
-         done
-       fi"
+    command:
+      - /bin/bash
+      - -lc
+      - |
+          set -euo pipefail
+
+          echo "[superset-init] db upgrade"
+          superset db upgrade
+
+          echo "[superset-init] create admin (python file, idempotente)"
+          # create_admin.py va dentro de la imagen en /app/superset_as_code
+          python3 /app/superset_as_code/create_admin.py || true
+
+          echo "[superset-init] init"
+          superset init
+
+          echo "[superset-init] done"
     restart: "no"
 
 networks:
@@ -81,4 +128,3 @@ volumes:
   superset_db:
   superset_home:
   datalake:
-    name: tfm_datalake

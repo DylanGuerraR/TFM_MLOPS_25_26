@@ -1,4 +1,10 @@
+# Fichero: compose.spark.yml
+# Propósito: Despliegue de un cluster Spark standalone para el procesamiento distribuido (ETL).
+# Incluye un servicio de inicialización para preparar el sistema de archivos del Datalake.
+
 services:
+  # --- SPARK MASTER ---
+  # Nodo central encargado de la orquestación y el portal de monitorización (UI).
   spark-master:
     image: bitnamilegacy/spark:3.5.0
     container_name: spark-master
@@ -6,48 +12,68 @@ services:
     environment:
       - SPARK_MODE=master
     ports:
-      - "7077:7077"
-      - "8086:8080"
+      - "7077:7077" # Puerto RPC para conexión de workers
+      - "8086:8080" # Spark Master UI (Monitorización de jobs)
     volumes:
       - datalake:/opt/datalake
     healthcheck:
+      # Verifica que el dashboard web esté respondiendo
       test: [ "CMD-SHELL", "bash -lc ': >/dev/tcp/127.0.0.1/8080'" ]
       interval: 10s
-      timeout: 5s
       retries: 3
-      start_period: 15s
     restart: unless-stopped
 
+  # --- SPARK WORKER ---
+  # Nodo ejecutor que realiza la computación real de los datos.
   spark-worker:
     image: bitnamilegacy/spark:3.5.0
     container_name: spark-worker
     networks: [ tfm_net ]
     depends_on:
-      spark-master:
-        condition: service_healthy
+      spark-master: { condition: service_healthy }
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
     ports:
-      - "8087:8081"
+      - "8087:8081" # Spark Worker UI
     volumes:
       - datalake:/opt/datalake
     restart: unless-stopped
 
+  # --- DATALAKE INIT ---
+  # Servicio efímero que prepara la estructura de carpetas y permisos en el volumen compartido.
+  # Se ejecuta una sola vez al inicio del pipeline.
   datalake-init:
     image: bitnamilegacy/spark:3.5.0
     container_name: datalake-init
     networks: [ tfm_net ]
-    user: "0:0"
+    user: "0:0" # Ejecuta como root para poder cambiar el dueño de las carpetas (chown)
     volumes:
       - datalake:/opt/datalake
     command:
       - bash
       - -lc
       - |
-        mkdir -p /opt/datalake/bronze/leads_raw /opt/datalake/checkpoints/leads_raw /opt/datalake/warehouse
+        set -e
+
+        # Rutas base del Datalake (Phase 1/2)
+        mkdir -p \
+          /opt/datalake/bronze/leads_raw \
+          /opt/datalake/checkpoints/leads_raw \
+          /opt/datalake/warehouse
+
+        # Rutas MLflow (Phase 3) - EVITA: sqlite3.OperationalError unable to open database file
+        mkdir -p \
+          /opt/datalake/4.MLflow \
+          /opt/datalake/4.MLflow/mlflow_artifacts
+
+        # Permisos generales para bitnami (uid 1001)
         chown -R 1001:1001 /opt/datalake
         chmod -R 775 /opt/datalake
+
+        # Permisos MLflow (más permisivo para evitar fallos por UID distinto en contenedor mlflow)
+        chmod -R 777 /opt/datalake/4.MLflow
+
     restart: "no"
 
 networks:

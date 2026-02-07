@@ -1,12 +1,23 @@
-from __future__ import annotations
+"""
+DAG: phase1_kafka_to_bronze
+Descripción: Primera fase del pipeline MLOps. Encargada de la ingesta de datos desde Kafka hacia la capa Bronze.
+Proceso: 
+  1. Inicializa infraestructura (Kafka, Spark).
+  2. Prepara el sistema de archivos (Datalake).
+  3. Ejecuta el generador de leads (Producer).
+  4. Ejecuta el job de Spark para convertir JSON a Parquet particionado.
+  5. Valida la integridad de la partición creada.
+"""
 
+from __future__ import annotations
 from datetime import datetime
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 
+# Ruta base del repositorio dentro del contenedor de Airflow
 REPO_DIR = "/opt/airflow/repo"
 
-
+# Comando base de Docker Compose unificando los ficheros de infraestructura necesarios
 COMPOSE = (
     f"docker compose -p tfm "
     f"-f {REPO_DIR}/compose.base.yml "
@@ -15,17 +26,17 @@ COMPOSE = (
     f"-f {REPO_DIR}/compose.jobs.yml "
 )
 
-
 with DAG(
     dag_id="phase1_kafka_to_bronze",
     description="TFM Fase 1: Kafka -> Bronze (Parquet particionado)",
-    start_date=datetime(2026, 2, 2),
-    schedule="0 0 1 * *",  # dia 1 de cada mes
-    catchup=False,
+    start_date=datetime(2026, 2, 2), # Fecha de inicio ajustada para el reset de hoy
+    schedule="0 0 1 * *",            # Frecuencia mensual
+    catchup=False,                   # Evita ejecuciones retroactivas automáticas
     max_active_runs=1,
     default_args={
         "retries": 1,
     },
+    # Parámetros por defecto para la ejecución del generador de datos
     params={
         "rows": "1000",
         "days": "7",
@@ -35,7 +46,8 @@ with DAG(
     },
 ) as dag:
 
-    # 0) opcional: levantar infraestructura si no la dejas always-on
+    # --- Tarea 0: infra_up ---
+    # Asegura que brokers de Kafka y cluster Spark estén levantados antes de proceder.
     infra_up = BashOperator(
         task_id="infra_up",
         bash_command=f"""
@@ -45,7 +57,8 @@ with DAG(
         """,
     )
 
-    # 1) preparar carpetas /opt/datalake/bronze y checkpoints (service datalake-init)
+    # --- Tarea 1: datalake_init ---
+    # Crea la estructura de directorios en el volumen 'tfm_datalake' (/opt/datalake/bronze, etc.)
     datalake_init = BashOperator(
         task_id="datalake_init",
         bash_command=f"""
@@ -55,7 +68,8 @@ with DAG(
         """,
     )
 
-    # 2) crear topic leads_raw si no existe (service topic-init ya es idempotente)
+    # --- Tarea 2: topic_init ---
+    # Crea el topic de Kafka 'leads_raw' si no existe, garantizando que el Producer pueda enviar datos.
     topic_init = BashOperator(
         task_id="topic_init",
         bash_command=f"""
@@ -65,7 +79,9 @@ with DAG(
         """,
     )
 
-    # 3) producer (genera mensajes y termina: restart "no")
+    # --- Tarea 3: run_producer ---
+    # Lanza el script Python (producer.py) que genera leads aleatorios y los envía a Kafka.
+    # Pasamos {{ ds }} (fecha lógica de Airflow) para que los datos coincidan con el periodo de ejecución.
     run_producer = BashOperator(
         task_id="run_producer",
         bash_command=f"""
@@ -77,23 +93,27 @@ with DAG(
           -e DAYS="{{{{ params.days }}}}" \
           -e CONVERT_RATE="{{{{ params.convert_rate }}}}" \
           -e SEED="{{{{ params.seed }}}}" \
+          -e START_DATE="{{{{ ds }}}}" \
+          -e INGESTION_DATE="{{{{ ds }}}}" \
           producer
         """,
     )
 
-    # 4) spark job kafka -> bronze
-    # requiere que kafka_to_bronze.py termine (trigger availableNow)
+    # --- Tarea 4: spark_to_bronze ---
+    # Lanza el job Spark (kafka_to_bronze.py) que lee de Kafka y escribe en Parquet en el Datalake.
+    # Usamos INGESTION_DATE_OVERRIDE para que la partición sea exactamente la fecha lógica del DAG.
     spark_to_bronze = BashOperator(
         task_id="spark_to_bronze",
         bash_command=f"""
         set -e
         cd {REPO_DIR}
-        {COMPOSE} run --rm --no-deps spark-kafka-to-bronze
+        {COMPOSE} run --rm --no-deps -e INGESTION_DATE_OVERRIDE="{{{{ ds }}}}" spark-kafka-to-bronze
         """,
     )
 
-    # 5) validación: existen ficheros parquet en ingestion_date={{ ds }}
-    # (usa spark-master porque tiene montado el volumen datalake)
+    # --- Tarea 5: validate_bronze_partition ---
+    # Verifica que la carpeta de la partición existe y contiene ficheros Parquet con datos legibles.
+    # Ejecuta comandos dentro del contenedor spark-master para acceder directamente al sistema de archivos.
     validate_bronze = BashOperator(
         task_id="validate_bronze_partition",
         bash_command=r"""
@@ -101,31 +121,50 @@ with DAG(
         PART="/opt/datalake/bronze/leads_raw/ingestion_date={{ ds }}"
         echo "Checking partition: ${PART}"
 
-        # 1) existe la partición
+        # 1) Comprobar existencia física del directorio de partición
         docker exec spark-master bash -lc "test -d '${PART}'"
 
-        # 2) listar algunos parquet y contar cuántos hay
-        echo "Parquet files (first 20):"
-        docker exec spark-master bash -lc "find '${PART}' -name '*.parquet' -type f | head -n 20"
-
+        # 2) Mostrar muestra de ficheros y conteo
         echo "Parquet file count:"
         docker exec spark-master bash -lc "find '${PART}' -name '*.parquet' -type f | wc -l"
 
-        # 3) leer con Spark y mostrar filas + muestra de campos
-        echo "Spark read check (rows + schema + sample):"
+        # 3) Prueba de lectura: Spark Shell lee la partición y muestra el esquema
+        echo "Spark read check:"
         docker exec -e PART_PATH="${PART}" spark-master bash -lc '
         /opt/bitnami/spark/bin/spark-shell << "SCALA"
         val path = sys.env("PART_PATH")
         val df = spark.read.parquet(path)
-
-        println(s"Rows = ${df.count()}")
+        println(s"RESULTADO: Se han encontrado ${df.count()} filas en la particion.")
         df.printSchema()
-        df.show(5, false)
-
         System.exit(0)
     SCALA
         '
         """,
     )
 
-    infra_up >> datalake_init >> topic_init >> run_producer >> spark_to_bronze >> validate_bronze
+    # --- Tarea 6: check_ingestion_parity (Senior Level Check) ---
+    # Compara el número de mensajes en Kafka con el conteo de filas en Bronze.
+    # Si hay una discrepancia (Data Loss), la tarea falla y detiene el flujo.
+    # Usamos spark-submit para asegurar que las dependencias de PySpark y Kafka estén cargadas.
+    check_parity = BashOperator(
+        task_id="check_ingestion_parity",
+        bash_command=f"""
+        set -e
+        cd {REPO_DIR}
+        PART="/opt/datalake/bronze/leads_raw/ingestion_date={{{{ ds }}}}"
+        docker run --rm \
+          --network tfm_net \
+          -v tfm_datalake:/opt/datalake \
+          -e PART_PATH="${{PART}}" \
+          -e KAFKA_TOPIC="{{{{ params.topic }}}}" \
+          -e KAFKA_BOOTSTRAP_SERVERS="broker-1:29092,broker-2:29093,broker-3:29094" \
+          tfm-spark-kafka-to-bronze:3.5.0 \
+          /opt/bitnami/spark/bin/spark-submit \
+            --master spark://spark-master:7077 \
+            --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 \
+            /opt/spark-app/check_parity.py
+        """,
+    )
+
+    # Definición de dependencias secuenciales
+    infra_up >> datalake_init >> topic_init >> run_producer >> spark_to_bronze >> validate_bronze >> check_parity

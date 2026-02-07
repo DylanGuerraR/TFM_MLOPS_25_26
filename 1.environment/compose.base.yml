@@ -1,9 +1,16 @@
+# Fichero: compose.base.yml
+# Propósito: Definición de recursos base compartidos (Redes y Volúmenes) 
+# para todos los microservicios del proyecto TFM.
+
 name: tfm
 
 networks:
+  # Red virtual aislada para la comunicación interna entre contenedores
   tfm_net:
     name: tfm_net
 
 volumes:
+  # Volumen persistente que actúa como el 'Data Lake' del proyecto.
+  # Aquí se almacenan las capas Bronze, Silver, Gold y los Checkpoints.
   datalake:
     name: tfm_datalake

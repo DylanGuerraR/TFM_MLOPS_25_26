@@ -5,56 +5,113 @@ models:
     description: "Capa Silver: Limpieza, tipado y deduplicación (1 fila por lead_number)."
     columns:
       - name: lead_number
-        description: "ID numérico único del prospecto"
         tests:
           - unique
           - not_null
+      - name: lead_origin
+        tests:
+          - not_null
       - name: converted
-        description: "Indicador binario de conversión (Target)"
         tests:
           - not_null
           - accepted_values:
               values: [0, 1]
       - name: total_visits
-        description: "Número total de visitas detectadas"
         tests:
           - not_null
       - name: total_time_spent_on_website
-        description: "Tiempo total en segundos en la web"
-        tests:
-          - not_null
-      - name: average_time_per_visit
-        description: "Métrica calculada: tiempo / visitas"
         tests:
           - not_null
 
   - name: leads_gold_features
-    description: "Capa Gold: Features finales listas para entrenamiento e inferencia (XGBoost)."
+    description: "Capa Gold: Features finales binarizadas listas para XGBoost."
     columns:
+      # Identificador y Target
       - name: "Lead Number"
+        quote: true
         tests:
           - unique
           - not_null
       - name: "Converted"
         tests:
           - not_null
+          - accepted_values:
+              values: [0, 1]
+
+      # Features Numéricas
       - name: "Total Time Spent on Website"
+        quote: true
         tests:
           - not_null
       - name: "Page Views Per Visit"
+        quote: true
         tests:
           - not_null
       - name: "TotalVisits"
         tests:
           - not_null
       - name: "Average Time Per Visit"
+        quote: true
         tests:
           - not_null
 
+      # Features Binarizadas (One-Hot Encoding)
+      # Comprobamos que solo contengan 0 o 1 (Numérico)
+      - name: "What is your current occupation_Unemployed"
+        quote: true
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+      - name: "What is your current occupation_Working Professional"
+        quote: true
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+      - name: "Tags_Closed by Horizzon"
+        quote: true
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+      - name: "Tags_Ringing"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+      - name: "Tags_Will revert after reading the email"
+        quote: true
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+      - name: "City_Mumbai"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+      - name: "Last Notable Activity_SMS Sent"
+        quote: true
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+
   - name: leads_gold_sin_converted
-    description: "Vista de inferencia: Igual que features pero sin la columna Converted."
+    description: "Vista de inferencia: Estructura idéntica a features sin target."
     columns:
       - name: "Lead Number"
+        quote: true
         tests:
           - unique
           - not_null
+      - name: "Total Time Spent on Website"
+        quote: true
+        tests:
+          - not_null
+      - name: "Tags_Ringing"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]

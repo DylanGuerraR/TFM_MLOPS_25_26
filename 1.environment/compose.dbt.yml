@@ -1,3 +1,7 @@
+# Fichero: compose.dbt.yml
+# Propósito: Definición del contenedor para ejecutar dbt (data build tool).
+# Este servicio se encarga de las transformaciones SQL en DuckDB (Silver/Gold Layers).
+
 services:
   dbt:
     build:
@@ -7,14 +11,24 @@ services:
     container_name: tfm-dbt
     networks: [ tfm_net ]
     environment:
+      # Rutas donde dbt buscará los ficheros dbt_project.yml y profiles.yml
       DBT_PROFILES_DIR: /usr/app
       DBT_PROJECT_DIR: /usr/app
+      # Variables para que dbt sepa donde están los datos de Bronze y la DB de Warehouse
       BRONZE_PATH: /opt/datalake/bronze/leads_raw
       WAREHOUSE_PATH: /opt/datalake/warehouse/tfm.duckdb
     volumes:
-      - datalake:/opt/datalake
-      - ./dbt:/usr/app
+      - datalake:/opt/datalake # Acceso a los datos físicos
+      - ./dbt:/usr/app # Sincronización del código SQL del host al contenedor
     working_dir: /usr/app
-    tty: true
+    tty: true # Habilita salida de consola coloreada
     stdin_open: true
-    restart: "no"
+    restart: "no" # Servicio bajo demanda (se lanza desde Airflow)
+
+networks:
+  tfm_net:
+    name: tfm_net
+
+volumes:
+  datalake:
+    name: tfm_datalake

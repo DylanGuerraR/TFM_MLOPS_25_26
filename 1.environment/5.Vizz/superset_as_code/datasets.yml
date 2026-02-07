@@ -1,0 +1,5 @@
+databases:
+  - database_name: tfm_duckdb
+    tables:
+      - table_name: v_dashboard_model_metrics
+        schema: main

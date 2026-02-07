@@ -1,22 +1,28 @@
+# Fichero: compose.mlflow.yml
+# Propósito: Despliegue del servidor de tracking de experimentos y del job de entrenamiento de ML.
+
 services:
+  # --- MLFLOW TRACKING SERVER ---
+  # Gestiona el registro de parámetros, métricas, modelos y artefactos (imágenes, modelos .pkl).
   mlflow-server:
     image: ghcr.io/mlflow/mlflow:v2.10.2
     container_name: mlflow-server
     networks: [ tfm_net ]
     ports:
-      - "5000:5000"
+      - "5000:5000" # MLflow UI (http://localhost:5000)
     volumes:
-      - datalake:/opt/datalake
-      - mlflow_db:/opt/mlflow_db
+      - datalake:/opt/datalake # Almacén de artefactos y DB para sincronización
     command: >
-      mlflow server --backend-store-uri sqlite:////opt/mlflow_db/mlflow.db --default-artifact-root /opt/datalake/4.MLflow/mlflow_artifacts --host 0.0.0.0 --port 5000
+      mlflow server  --backend-store-uri sqlite:////opt/datalake/4.MLflow/mlflow.db  --default-artifact-root /opt/datalake/4.MLflow/mlflow_artifacts  --host 0.0.0.0 --port 5000
     healthcheck:
+      # Verifica mediante Python que la API de MLflow responda antes de lanzar el entrenamiento.
       test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" ]
       interval: 10s
-      timeout: 5s
       retries: 5
     restart: unless-stopped
 
+  # --- TRAIN XGBOOST ---
+  # Contenedor efímero que ejecuta el script de entrenamiento (train_xgboost.py).
   train-xgboost:
     build:
       context: ./4.MLflow
@@ -25,20 +31,20 @@ services:
     container_name: train-xgboost
     networks: [ tfm_net ]
     depends_on:
-      mlflow-server:
-        condition: service_healthy
+      mlflow-server: { condition: service_healthy } # Solo empieza cuando MLflow está listo
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow-server:5000
       - DUCKDB_PATH=/opt/datalake/warehouse/tfm.duckdb
     volumes:
       - datalake:/opt/datalake
-    restart: "no"
+    restart: "no" # Se ejecuta bajo demanda desde Airflow y termina.
+
+volumes:
+  # Volumen interno dedicado para evitar la corrupción de la DB SQLite en sistemas compartidos.
+  mlflow_db:
+  datalake:
+    name: tfm_datalake
 
 networks:
   tfm_net:
     name: tfm_net
-
-volumes:
-  datalake:
-    name: tfm_datalake
-  mlflow_db:
