@@ -40,7 +40,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock # Crítico: Para que Airflow maneje Docker
       - ./:/opt/airflow/repo
     group_add:
-      - "999" # Suele ser el GID de docker en sistemas Linux/WSL
+      - "${DOCKER_GID}" # Asegura que el contenedor puede acceder al socket de Docker
     command: [ "bash", "-lc", "airflow db migrate && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true" ]
     restart: "no"
 
@@ -65,7 +65,8 @@ services:
       - ./airflow/plugins:/opt/airflow/plugins
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/opt/airflow/repo
-    group_add: [ "999" ]
+    group_add:
+      - "${DOCKER_GID}"
     command: [ "airflow", "webserver" ]
     restart: unless-stopped
 
@@ -88,7 +89,8 @@ services:
       - ./airflow/plugins:/opt/airflow/plugins
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/opt/airflow/repo
-    group_add: [ "999" ]
+    group_add: 
+      - "${DOCKER_GID}"
     command: [ "airflow", "scheduler" ]
     restart: unless-stopped
 
